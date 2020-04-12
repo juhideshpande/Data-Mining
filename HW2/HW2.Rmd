@@ -1,0 +1,365 @@
+---
+title: "CS 422 Section 04"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+author: "Juhi Uday Deshpande, MS, Illinois Institute of Technology"  
+---
+
+### Part 2.1-A-i
+```{r}
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(ROCR)
+library(randomForest)
+library(arules)
+library(arulesViz)
+set.seed(1122)
+
+getwd()
+setwd("C:/Users/Juhi Deshpande/Documents")
+train.df<-read.csv("adult-train.csv",header = T)
+str(train.df)
+setwd("C:/Users/Juhi Deshpande/Documents")
+test.df<-read.csv("adult-test.csv",header = T)
+
+options("digits"=3)
+
+occupation<-which(train.df$occupation=="?")
+sum(train.df$occupation=="?")
+print(occupation)
+workclass<-which(train.df$workclass =="?")
+sum(train.df$workclass =="?")
+print(workclass)
+native_country<-which(train.df$native_country=="?")
+sum(train.df$native_country=="?")
+print(native_country)
+new_train_df<-data.frame(subset(train.df, occupation !="?" & native_country!="?" & workclass!="?"))
+nrow(new_train_df)
+
+
+str(test.df)
+occupation<-which(test.df$occupation=="?")
+print(occupation)
+workclass<-which(test.df$workclass =="?")
+print(workclass)
+native_country<-which(test.df$native_country=="?")
+print(native_country)
+#options(max.print =="?")
+new_test_df<-data.frame(subset(test.df, (occupation !="?" & native_country !="?" & workclass !="?" )))
+summary(new_test_df)
+nrow(new_test_df)
+
+```
+### Part 2.1-B
+```{r decision tree making}
+#install.packages("rpart")
+
+decision_tree<-rpart(new_train_df$income~.,new_train_df)
+print(decision_tree)
+summary(decision_tree)
+rpart.plot(decision_tree, extra=104, fallen.leaves = T, type=4, main="Rpart on Income data (Full Tree)")
+
+```
+##2.1-B i
+```{r}
+
+#the three most important variables are: relationship, marital status, capital gain
+```
+###2.1-B ii
+```{r}
+#the first split is done on income;  predicted class of first node is <=50K;
+#the distribution of observations is: 0.7511 ie 22654 and  0.2489 ie 7507
+
+```
+### Part 2.1-c
+```{r confusionmatrix}
+
+p<-predict(decision_tree, new_test_df, type = "class")
+head(p)
+
+head(new_test_df$income)
+#install.packages("caret")
+confusionMatrix(p,as.factor(new_test_df[ ,15]))
+```
+###2.1-c i  
+```{r}
+#Balanced Accuracy : 0.726
+```
+
+###2.1-c ii 
+```{r}
+#Balanced error rate =0.274
+```
+###2.1-c iii
+```{r}
+#Sensitivity : 0.948  ; Specificity : 0.504 
+
+```
+### Part 2.1-c-iv
+```{r auc}
+p.rocr<-predict(decision_tree, newdata=new_test_df, type="prob")[,2]
+p.pred<-prediction(p.rocr, new_test_df$income)
+p.perf<-performance(p.pred,"tpr","fpr")
+plot(p.perf, col="brown", lwd=10)
+abline(0,1)
+
+area_under_curve<-performance(p.pred,measure = "auc")
+cat(paste("The area under curve (AUC) for this model is ", round(area_under_curve@y.values[[1]], 3)))
+
+#The area under curve (AUC) for this model is  0.843
+
+
+tmp.df <- data.frame(True_income=head(new_test_df$income),
+                     Predicted_income=head(p),
+                     Probability=head(p.rocr))
+tmp.df
+
+rm(tmp.df)
+```
+### Part 2.1-d
+```{r complexity table}
+printcp(decision_tree)
+
+
+cpx=decision_tree$cptable[which.min(decision_tree$cptable[,"xerror"]), "CP"]
+cpx
+
+#the tree would not benefit from pruning because the value of xerror(cross validation) goes on decreasing till the 4th row
+
+```
+
+### Part 2.1-e
+```{r undersampling training dataset}
+
+#Part 2.1-e-i
+plyr::count(new_train_df$income)
+
+
+# <=50k : 22653   ;   >50k  : 7508
+```
+###Part 2.1-e-ii
+```{r}
+options(digits = 3)
+split_df<-split(new_train_df,new_train_df$income)
+adult_less_than_50<-split_df$`<=50K`
+adult_more_than_50<-split_df$`>50K`
+select_obs<- sample(1:dim(adult_less_than_50)[1], dim(adult_more_than_50)[1])
+undersampled_df<- rbind(adult_less_than_50[select_obs, ], adult_more_than_50)
+summary(undersampled_df)
+
+new_dt<-rpart(undersampled_df$income~.,undersampled_df)
+summary(new_dt)
+pred_new_dt<-predict(new_dt,new_test_df,type="class")
+
+
+confusionMatrix(pred_new_dt,as.factor(new_test_df[ ,15]))
+
+p_new.rocr<-predict(new_dt, newdata=new_test_df, type="prob")[,2]
+p_new_prediction<-prediction(p_new.rocr, new_test_df$income)
+p_new_perf<-performance(p_new_prediction,"tpr","fpr")
+plot(p_new_perf, col="red", lwd=10)
+abline(0,1)
+
+auc_new<-performance(p_new_prediction,measure = "auc")
+cat(paste("The area under curve (AUC) for this model is ", round(auc_new@y.values[[1]], 3)))
+
+
+#i) the balanced accuracy of this model : 0.804
+#ii) the balanced error rate : 0.196
+#iii)Sensitivity : 0.773  ; Specificity : 0.834
+#iv) AUC of the ROC curve : 0.845
+             
+```
+###Part 2.1-f
+```{r}
+# The sensitivity for the model(c) is more showing that it generates more true positive values than model (e)
+# 
+# The specificity for the model(e) is more showing that it generates more true negative values than model (c) 
+# 
+# Balanced accuracy for model (e) is more than model (c)
+# 
+# Positive predicted value is much more for model(e) than model(c)
+# 
+# AUC of model (c) is more than model (e)
+
+
+```
+
+###Part 2.2-a
+```{r}
+ set.seed(1122)
+r<-randomForest(income~.,data = new_train_df,importance=T)
+
+pred1<-predict(r,new_test_df,type="class")
+confusionMatrix(pred1,as.factor(new_test_df$income))
+```
+
+###Part 2.2-a-i
+```{r}
+#balanced accuracy of the model :  0.785 
+```
+###Part 2.2-a-ii
+```{r}
+#accuracy of the model : 0.858  
+```
+###Part 2.2-a-iii
+```{r}
+#sensitivity: 0.930  ;  Specificity : 0.639  
+
+```
+
+###Part 2.2-a-iv
+```{r}
+a1<-data.frame(table(new_test_df$income))
+print(a1)
+#<=50K : 11360    ;  >50K :  3700 
+```  
+
+###Part 2.2-a-v
+```{r}
+#specificity and sensitivity are inversely proportional to each other which means that the model predicts true positive more accurately than the true negative
+```
+###Part 2.2 a-vi
+```{r}
+
+varImpPlot(r)
+#  MeanDecreaseAccuracy,  the most important variable : capital_gain and 
+# the least important one : fnlwgt(final weight)
+# Mean decrease Gini, the most important variable: relationship     and
+# least important one : race and sex
+```
+###Part 2.2 a-vii
+```{r}
+print(r)
+#No. of variables tried at each split: 3
+```
+
+###Part 2.2-b
+```{r}
+
+mtry<-tuneRF(new_train_df[,-15],new_train_df[,15], ntreeTry=500,
+stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+#Part 2.2-b-i
+print(mtry)
+# default value of mtry : 3
+```
+
+###Part 2.2-b-ii
+```{r}
+mtry1<-tuneRF(new_train_df[,-15],new_train_df[,15],mtryStart=2 ,ntreeTry=500,
+stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+print(mtry1)
+#the optimal value for mtry is : 2
+```
+
+###Part 2.2-b-iii
+```{r}
+new_model<-randomForest(income~.,data = new_train_df,mtry=2,importance=T)
+print(new_model)
+
+
+pred2<-predict(new_model,new_test_df,type="class")
+confusionMatrix(pred2,as.factor(new_test_df$income))
+
+```
+###Part 2.2-b-iii-1
+```{r}
+#Balanced Accuracy : 0.783 
+```
+###Part 2.2-b-iii-2
+```{r}
+# Accuracy : 0.86 
+```
+###Part 2.2-b-iii-3
+```{r}
+#Sensitivity : 0.934       ;  Specificity : 0.633 
+```
+###Part 2.2-b-iii-4
+```{r}
+varImpPlot(new_model)
+
+#MeanDecreaseAccuracy for most important variable is: capital_gain & least important variable is:fnlwgt(final weight)
+
+#MeanDecreaseGini for most important variable is: capital_gain & least importance variable is:race
+
+```
+###Part 2.2-b-iv
+```{r}
+#Comparison of 2.2 a and 2.2 b
+# when we use mtry=2 (in 2.2 b) which has less out of bag error rate we get àn increase:
+#   1) balanced accuracy
+#   2)accuracy
+#  3) Sensitivity
+# 4) Specificity
+#   5) fnwlgt(final weight) in MeanDecrease Accuracy
+#      6)sex in MeanDecrease Gini
+# But there is decrease in:
+#  1) meanDecrease accuracy of capital_gain
+#   2)meanDecrease Gini of capital_gain
+#   3)meanDecrease Gini of race
+# 
+
+```
+### Part 2.3-i
+```{r}
+trans<-read.transactions("groceries.csv",sep = ",")
+inspect(trans)
+print(trans)
+#inspect(association_df[1:5,])
+
+rules<-apriori(trans)
+summary(rules)
+#inspect(sort(rules, decreasing = F, by="count"))
+
+#Rules at this (0.1) support value are: 0
+
+
+
+```
+### Part 2.3-ii
+```{r}
+
+result<-apriori(trans, parameter = list(support=0.001))
+
+#inspect(result)
+summary(result)
+#for support 0.001 we get 410 rules which is approx. 400 rules
+
+```
+### Part 2.3-iii
+```{r}
+result2<-apriori(trans, parameter = list(support=0.001,target="frequent"))
+summary(result2)
+
+
+#whole milk is most frequently bought with a frequency of 3765 
+
+```
+### Part 2.3-iv
+```{r}
+result1<-apriori(trans, parameter = list(support=0.001,target="frequent"))
+summary(result1)
+#the itemset with least frequency is : tropical fruit : 1797
+
+
+```
+### Part 2.3-v
+```{r}
+inspect(head(result, by="support")[1:5])
+
+```
+### Part 2.3-vi
+```{r}
+inspect(head(result, by="confidence")[1:5])
+```
+### Part 2.3-vii
+```{r}
+inspect(tail(result, by="support")[1:5])
+```
+### Part 2.3-viii
+```{r}
+inspect(tail(result, by="confidence")[1:5])
+```
