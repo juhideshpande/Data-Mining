@@ -1,0 +1,292 @@
+---
+title: "CS 422 Section 04-Data Mining--Juhi Uday Deshpande"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  
+---
+
+
+
+```{r}
+library(cluster)
+library(factoextra)
+library(dplyr)
+library(fpc)
+library(NbClust)
+library(cluster)
+setwd("C:/Users/Juhi Deshpande/Documents")
+
+```
+###Part 2.1 a i
+```{r}
+#Name attribute was removed from the file because name is of no use while clustering
+
+
+```
+###Part 2.1 a ii
+```{r}
+#the data need not be standardized because all the values of attributes are in the same range
+
+
+```
+###Part 2.1 a iii
+```{r}
+mammals_df<-data.frame(read.csv("Mammals.csv",header= T))
+summary(mammals_df)
+k_means<-kmeans(mammals_df[2:9],centers = 5, nstart = 25)
+```
+###Part 2.1 b- i
+```{r}
+fviz_nbclust(mammals_df[2:9],kmeans, method = "wss")
+#answer: No. of optimal clusters=5 by wss. Alternate values can be 7,9
+fviz_nbclust(mammals_df[2:9],kmeans, method = "silhouette")
+#by silhouette it is 10
+```
+###Part 2.1 b- ii
+```{r}
+fviz_cluster(kmeans(mammals_df[2:9], centers = 5, nstart = 25),data = mammals_df[2:9])
+
+#fviz_cluster(kmeans(iris[1:4], centers=5, nstart=25), data=iris[1:4])
+```
+###Part 2.1 b- iii
+```{r}
+k_means$size
+#Size of 5 observations : 11  1 19 20 15
+```
+###Part 2.1 b- iv
+```{r}
+k_means$totss
+# total SSE : 568.303
+```
+###Part 2.1 b- v
+```{r}
+k_means$withinss
+#each cluster has ss : 10.72727 ;  0.00000 ; 23.47368 ; 42.75000 ; 41.33333
+```
+###Part 2.1 b- vi
+```{r}
+ which(k_means$cluster == 1)
+
+# for cluster 1 : 9 10 58 59 60 61 62 63 64 65 66
+which(k_means$cluster == 2)
+# for cluster 2 : 12
+which(k_means$cluster == 3)
+#for cluster 3 :  13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+which(k_means$cluster == 4)
+# for cluster 4 : 36 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56
+which(k_means$cluster == 5)
+# for cluster 5 : 1  2  3  4  5  6  7  8 11 32 33 34 35 37 57
+
+#mammals have been grouped in each cluster and make sense (majority of them). Hence, the results meets expectations.
+
+```
+
+###Part 2.2
+```{r}
+
+hc_mammals<-read.csv("Mammals.csv", row.names = 1)
+summary(hc_mammals)
+set.seed(1122)
+abc<-sample_n(hc_mammals,35,replace = F)
+
+```
+###Part 2.2 a
+```{r}
+hc_single<-eclust(abc,palette="jco", FUNcluster="hclust",hc_method = "single")
+fviz_dend(hc_single,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering")
+
+hc_complete<-eclust(abc,palette="jco", FUNcluster="hclust",hc_method = "complete")
+fviz_dend(hc_complete,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering")
+
+hc_average<-eclust(abc,palette="jco", FUNcluster="hclust",hc_method = "average")
+fviz_dend(hc_average,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering",as.ggplot=T)
+
+```
+###Part 2.2 b
+```{r}
+#the singleton clusters in single linkage is : {Groundhog and Prairie Dog ; Elk and Reindeer ; Ocelot and Jaguar ; Badger and Skunk ; Silver hair bat and Lump nose bat}
+
+#the singleton clusters in complete linkage is: {Groundhog and Prairie Dog ; Sea Lion and Elephant seal ;Ocelot and Jaguar ; Badger and Skunk; StarNose mole and Raccoon; Elk and Reindeer ; Pigmy bat and Hoary bat; Silver hair bat and Lump nose bat}
+
+#the singleton clusters in average linkage is: {Groundhog and Prairie Dog ;Sea Lion and Elephant seal ; Ocelot and Jaguar ;Badger and Skunk;Elk and Reindeer ; Silver hair bat and Lump nose bat; Pigmy bat and Hoary bat;Racoon and Star nose mole}
+ 
+```
+###Part 2.2 c
+```{r}
+#from 2.2 b considering the purity the pure link strategy is : 
+#single-5
+#complete-8
+#average-8
+#hence pure is : single
+```
+###Part 2.2 d
+```{r}
+#The number of clusters at height 2 is : 5
+cutree(hc_single,h=2)
+
+abline(plot(hc_single),h=2,col="blue")
+```
+###Part 2.2 e
+```{r}
+hc_single1<-eclust(abc,palette="jco", FUNcluster="hclust",k=5,hc_method = "single")
+fviz_dend(hc_single1,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering")
+
+hc_complete1<-eclust(abc,palette="jco", FUNcluster="hclust",k=5,hc_method = "complete")
+fviz_dend(hc_complete1,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering")
+
+hc_average1<-eclust(abc,palette="jco",FUNcluster="hclust",k=5,hc_method = "average")
+fviz_dend(hc_average1,show_labels = TRUE,type="rectangle",main="Hierarchical Clustering",as.ggplot=T)
+
+```
+###Part 2.2 f
+```{r}
+
+ds1 <- cluster.stats(dist(abc),hc_single1$cluster)
+ds1$dunn
+ds1$avg.silwidth
+#[1] 0.4472136
+#[1] 0.4446204
+
+ds2<-cluster.stats(dist(abc),hc_complete1$cluster)
+ds2$dunn
+ds2$avg.silwidth
+#[1] 0.3651484
+#[1] 0.3985958
+
+ds3<-cluster.stats(dist(abc),hc_average1$cluster)
+ds3$dunn
+ds3$avg.silwidth
+#[1] 0.420084
+#[1] 0.4133625
+```
+###Part 2.2 g
+```{r}
+#higher the value better the clustering. So according to the values  single linkage strategy is the best one as measured by the Dunn and Silhouette widths
+```
+###Part 2.3 a-i
+```{r}
+library(corrplot)
+library(ggfortify)
+df<-read.csv("HTRU_2-small.csv")
+
+pca<-prcomp(df[,1:8], scale.=T, center=T)
+summary(pca)
+# cumulative variance explained by the first two components is :(PC1+PC2/(PC1+PC2+PC3+PC4+PC5+PC6+PC7+PC8])) 78.54% approx. 79% variance
+```
+###Part 2.3 a ii
+```{r}
+#head(pca$x)
+plot(pca$x[,1], pca$x[,2], pch=21, 
+     bg=c("red", "black"), main="HTRU-2 Data",
+     xlab="PC1", ylab="PC2")
+legend("topright", legend=c("1", "0"), 
+       pch=c(21,21), pt.bg=c("red","black"))
+#autoplot(pca,data=df,colour="class")
+
+```
+###Part 2.3 a iii
+```{r}
+biplot(pca)
+
+#For the given biplot() for the actual labels we have mean and standard deviation on the right most side ;kurtosis and skewness on the left hand side; mean.dm.snr and std.dev.dm.snr on the downward axis; kurtosis.dm.snr and skewness.dm.snr on the upward axis. Example, if a point is nearer to the mean and standard deviation axis it shows that it has a greater value of mean and standard deviation and the point farther one has lower value of mean and standard deviation. Similar meaning applies for the rest of the axis. Each of these have higher correlation as their eigenvector points to same direction
+
+```
+###Part 2.3 b-i
+```{r}
+scaled.k<-scale(df[,1:8])
+#scaled the data
+ 
+fviz_cluster( kmeans(scaled.k,centers = 2,  nstart = 25),data = df[,1:8])
+```
+###Part 2.3 b-ii
+```{r}
+#Both the graphs are similar in shape. It is almost a V shaped graph. Because PCA is linear combination of eigenvectors and Kmeans is a linear combination of centroids. Both try to minimize the reconstruction error(difference between originla data and estimate.)Converge to a solution that is locally optimal. k=2 and first two PCA
+
+```
+###Part 2.3 b-iii
+```{r}
+new_kmeans<-kmeans(scaled.k,centers = 2,  nstart = 25)
+new_kmeans$size
+
+#distribution of the observations in each cluster is   8847 and 1153
+
+```
+###Part 2.3 b-iv
+```{r}
+table(df$class)
+#class 0 has 9041 observations and class 1 has 959
+```
+###Part 2.3 b-v
+```{r}
+#based on the above values cluster 1  belongs to the majority class class0  and cluster 2 is the minority class class1. cLuster 1 is large cluster and cluster 2 is small
+```
+###Part 2.3 b-vi
+```{r}
+pts=which(new_kmeans$cluster==1)
+cnt=0
+for(n in 1:length(pts))
+{
+  if(df[pts[n],9]==0)
+    cnt=cnt+1
+}
+cat(paste("Observations in large cluster that has class0: " , cnt))
+cat(paste("  Observations in small cluster that has class1: " , length(pts)-cnt))
+
+
+
+#There are 8624 observations in the large cluster belongs to Class 0 and 223 Observations in the large cluster belongs to class 1
+```
+###Part 2.3 b-vii
+```{r}
+#based on the above analysis the larger cluster represents class 0
+```
+###Part 2.3 b-viii
+```{r}
+# variance by clustering is:  0.3586788
+#new_kmeans$withinss
+v<-(new_kmeans$betweenss/new_kmeans$totss)
+print(v)
+#summary(new_kmeans)
+```
+###Part 2.3 b-ix
+```{r}
+
+km_stats<-cluster.stats(dist(scaled.k),new_kmeans$cluster)
+km_stats$avg.silwidth
+# average Silhouette width of both the clusters :   0.6006794
+```
+###Part 2.3 b-x
+```{r}
+sil<-silhouette(new_kmeans$cluster,dist(scaled.k))
+a<-summary(sil)
+a$clus.avg.widths
+#for cluster 1 it is : 0.6592013 and cluster 2 it is :0.1516389  Hence higher the value better the clustering. So according to the values, cluster1 is good
+
+```
+###Part 2.3 c i
+```{r} 
+
+pca_kmeans<-kmeans(pca$x[,1:2],centers = 2,nstart = 25)
+fviz_cluster(pca_kmeans,data=pca$x[,1:2])
+#Graphs from  a(ii) and b(i) have the same shape. Both are V shaped graphs
+```
+###Part 2.3 c ii
+```{r}
+km_pca<-cluster.stats(dist(pca$x[,1:2]),pca_kmeans$cluster)
+km_pca$avg.silwidth
+# average Silhouette width of both the clusters : 0.6826261
+```
+###Part 2.3 c iii
+```{r}
+sil2<-silhouette(pca_kmeans$cluster,dist(pca$x[,1:2]))
+b<-summary(sil2)
+b$clus.avg.widths
+#for cluster 1 it is : 0.4489076 and cluster 2 it is :0.7003259 
+
+```
+###Part 2.3 c iv
+```{r}
+#The values in  b(ix) and b(x) are lesser than the values in c(ii) and c(iii) which shows that part c has better clustering than part b. So performing kmeans on the first two principal components gives us better clustering results.
+```
