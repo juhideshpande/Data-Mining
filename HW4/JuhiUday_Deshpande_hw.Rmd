@@ -1,0 +1,591 @@
+---
+title: "CS 422 Section 04"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+author: "Juhi Uday Deshpande, MS, Illinois Institute of Technology"  
+---
+
+
+
+```{r}
+library(textreuse)
+library(stringr)
+library(stats)
+library(lsa)
+library(crayon)
+setwd("C:/Users/Juhi Deshpande/Documents")
+movies_df<-read.csv("C:/Users/Juhi Deshpande/Documents/ml-latest-small/movies.csv",header = T,sep=",")
+ratings_df<-read.csv("C:/Users/Juhi Deshpande/Documents/ml-latest-small/ratings.csv",header = T,sep=",")
+movies_df <- data.frame(lapply(movies_df, as.character),stringsAsFactors = FALSE)
+ratings_df <- data.frame(lapply(ratings_df,as.character),stringsAsFactors = FALSE)
+files <- list.files("C:/Users/Juhi Deshpande/Documents/hw4.movies", full.names=T)
+print(files)
+corpus <- TextReuseCorpus(files, tokenizer = tokenize_ngrams, n = 5,
+ keep_tokens = TRUE)
+
+```
+###Part 2.1 a
+```{r}
+#doubt
+rc <- paste0("user",1)
+characteristic_matrix <- tokens(corpus[[rc]])
+rc_unique <- c(unique(characteristic_matrix))
+for (j in 2:671){
+rc <- paste0("user",j)
+characteristic_matrix <- tokens(corpus[[rc]])
+  rc_unique <- c(rc_unique,characteristic_matrix)
+  rc_unique <- unique(rc_unique)
+}
+length(which(duplicated(rc_unique) == TRUE))
+length(rc_unique)
+
+# the size (rows and columns) of our characteristic matrix is 157728 rows representing shingles and 671 documents representing rows. All are unique shingles; no duplicates. Hence it is of size 157728 * 671
+
+```
+###Part 2.1 b-i
+```{r}
+d<-corpus[["user20"]]
+ str_count(d,pattern="\n") 
+#the user 20 has rated 97 movies...
+
+```
+###Part 2.1 b-ii
+```{r}
+
+head(d$tokens,5)
+```
+###Part 2.1 c-i
+```{r}
+similar_users<-pairwise_candidates(pairwise_compare(corpus, jaccard_similarity))
+sum(similar_users$score >= 0.60)
+#0  pairs of users have a similarity score of at least 0.60
+```
+###Part 2.1 c-ii
+```{r}
+sum(similar_users$score >= 0.50)
+#0  pairs of users have a similarity score of at least 0.50
+```
+###Part 2.1 c-iii
+```{r}
+sum(similar_users$score >= 0.40)
+#4  pairs of users have a similarity score of at least 0.0
+```
+###Part 2.1 c-iv
+```{r}
+a4<-c(which(similar_users$score >= 0.40))
+similar_users[a4,]
+#4  pairs of users have a similarity score of at least 0.0
+```
+###Part 2.1 d i
+```{r}
+
+lsh_probability(h=28, b=14,s=0.6)
+#the number of minhash signatures is 18 and the numbers of bands is 14
+
+```
+###Part 2.1 d ii
+```{r}
+minhash_gen<-minhash_generator(n=28,seed = 100)
+corpus2<-TextReuseCorpus(files,tokenizer = tokenize_ngrams,n=5,minhash_func = minhash_gen,keep_tokens = T)
+head(corpus2[["user20"]]$minhashes,5)
+#The the first five minhashes -2136030551 -2145695800 -2132100560 -2141561957 -2137847953
+```
+###Part 2.1 e-i
+```{r}
+comparisons2<- lsh(corpus2, bands = 14)
+pair_candidate2 <- lsh_candidates(comparisons2)
+ans2 <- lsh_compare(pair_candidate2, corpus2, jaccard_similarity)
+
+d <- c(which(ans2$score >= 0.60))
+sum(d)
+m <- c(which(ans2$score >= 0.50))
+sum(m)
+
+
+#there are no pairs using LSH also for similarity in  between 0.6 and 0.5. As the similarity score is higher there may be no users with same similarity
+
+
+```
+###Part 2.1 e-ii
+```{r}
+
+b4<-c(which(ans2$score >= 0.40))
+ans2[b4,]
+
+```
+###Part 2.1 e-iii
+```{r}
+#Yes, both have same pairs of users at similarity >=0.4
+
+```
+###Part 2.1 e-iv
+```{r}
+
+
+
+
+# Compared to the number of comparisons in (c) which were 224,785 and here (e)it was 1,501 comparisons, so worked saved by LSH is (224785-1,501/224785)*100 is 99.33%
+
+```
+###Part 2.2 Recommender System
+```{r}
+#the modulo operation for 20430435results in 498 as the user id
+user498<-subset(ratings_df,ratings_df$userId==498)
+genres <- c("Movie id","Action","Adventure","Animation","Children","Comedy","Crime","Documentary","Drama","Fantasy","Film-Noir","Horror","IMAX","Musical","Mystery","Romance","Sci-Fi","Thriller","War","Western","(No Genres listed)")
+user_matrix<-matrix(as.numeric(0),nrow=21,ncol=21)
+colnames(user_matrix)<-factor(genres)
+
+movies_498<-movies_df[which(movies_df$movieId %in% user498$movieId),]
+str(movies_498)
+rownames(movies_498)<-1:20
+for (j in 1:20)
+{
+user_matrix[j,1] <- movies_498[j,1]
+bb <- unlist(strsplit(movies_498[j,]$genres, split="[|]"))#string splitting
+for (k in 1:length(bb))
+{
+user_matrix[j,bb[k]] <- as.numeric(1)
+}
+}
+
+write.csv(user_matrix,file = "498user_profile.csv")
+user498profile<-read.csv("498user_profile.csv",sep=",",stringsAsFactors = FALSE)
+user_matrix[21,1]<-"AVG"
+for (g in 3:22){
+user_matrix[21,g-1] <- mean(user498profile[1:20,g])
+}
+user.profile498 <- user_matrix[21,2:21]
+write.csv(user.profile498,file = "498user_profile.csv",append = T)
+```
+```{r}
+options(digits=3)
+sampled <- sample(1:9126,10,replace = FALSE)
+random_movies <- movies_df[sampled,]
+rownames(random_movies) <- 1:10
+recommend_movies <- matrix(as.numeric(0),nrow = 10,ncol = 21)
+colnames(recommend_movies) <- genres
+
+
+for (g in 1:10){
+recommend_movies[g,1] <- random_movies[g,1] 
+dd <- unlist(strsplit(random_movies[g,]$genres,split="[|]"))
+for (k in 1:length(dd)){
+recommend_movies[g,dd[k]] <- as.numeric(1)
+}
+}
+cosine_similarity <- function(x, y) {
+sum(x*y)/(norm(x, type="2") * norm(y, type="2"))
+}
+cosine_similarity(as.numeric(user.profile498 ),as.numeric(recommend_movies[1,2:21]))
+
+recommend_movies <- cbind(recommend_movies,c(1,1,1,1,1,1,1,1,1,1))
+
+for (g in 1:10){
+cosine <- c(cosine_similarity(as.numeric(user.profile498),as.numeric(recommend_movies[g,2:21])))
+recommend_movies[g,22] <- cosine 
+}
+
+```
+```{r}
+options(digits=3)
+#sort all cosine similarities of movies 
+movies_recommended <- recommend_movies[order(recommend_movies[,22]),]
+cat("User ID 498 chose the following 10 movies: \n")
+print(recommend_movies[,1])
+cat("User ID 498, the following 5 movies are recommended : " , "\n")
+
+#the movies with highest cosine similarities
+cat("Movie ID\t","Movie\t\t","Similarity Score\t" ,"\n")
+for (m in 10:6){
+top_movie <- which(movies_df$movieId == movies_recommended[m,1])
+ 
+  cat((movies_df[top_movie,1]) ,"\t" ,(movies_df[top_movie, 2]),"\t" , format(round(as.numeric(movies_recommended[m,22]),3)), "\n")
+}
+
+```
+###Part 2.3 Collaborative Filtering
+```{r}
+
+user_191<-c(which(ans2$a=="user191"))
+user_191<-c(user_191,c(which(ans2$b=="user191")))
+sorted<-ans2[user_191,]
+u191_ordered<-sorted[order(-sorted$score),]
+u191_ordered
+
+u191 <- subset(ratings_df,ratings_df$userId==191)
+row.names(u191) <- 1:length(as.numeric(u191$movieId))
+
+test_dataset<- head(u191)
+for (j in 1:6){
+  u191[j,3] <- NA
+}
+
+```
+###Part 2.3(a) Prediction using user-user similarity
+```{r}
+random_191 <- c("513","317","375","82","657") 
+xyz <- c("191",random_191)
+u513 <- subset(ratings_df,ratings_df$userId==513)
+u317 <- subset(ratings_df,ratings_df$userId==317)
+u375 <- subset(ratings_df,ratings_df$userId==375)
+u82 <- subset(ratings_df,ratings_df$userId==82)
+u657 <- subset(ratings_df,ratings_df$userId==657)
+
+U<-matrix(as.numeric(0),nrow=6,ncol=29)
+movies<- intersect(u191$movieId,u513$movieId)
+
+movies <- c(unique(movies),intersect(u191$movieId,u317$movieId))
+movies <- c(unique(movies),intersect(u191$movieId,u375$movieId))
+movies <- c(unique(movies),intersect(u191$movieId,u82$movieId))
+movies<- c(unique(movies),intersect(u191$movieId,u657$movieId))
+movies<- unique(movies)
+movies
+
+colnames(U) <- factor(movies) 
+rownames(U) <- xyz
+n <- "191"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+
+n <- "513"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+n <- "317"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+n <- "375"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+n <- "82"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+n <- "657"
+user_id <- subset(ratings_df,ratings_df$userId==as.numeric(n))
+for (j in 1:29){
+k <- colnames(U)[j]
+if (is.element(k,user_id$movieId) && !is.null(k) ){
+m1 <- which(user_id$movieId == k)
+U[n,k] <- as.numeric(user_id[m1,3])
+}    
+}
+  
+for (d in 1:5){
+U["191",d] <-as.numeric(0)
+}
+
+for (h in 1:ncol(U)) {
+  for (l in 1:nrow(U)) {
+    if(U[l,h] == 0){
+     U[l,h] <- NA
+    }
+  }
+}
+
+
+final_U <- U
+ var1<- c(mean(final_U[1,],na.rm = TRUE))
+for (h in 2:6){
+  var1 <- c(var1,mean(final_U [h,],na.rm = TRUE))
+}
+ 
+for (v in 1:6){
+  for (w in 1:27){
+    if (!is.na(final_U[v,w]) ){
+      final_U[v,w] <- final_U[v,w] - var1[v]
+    }
+    else{
+      final_U[v,w] <- NA
+    }
+  }
+} 
+ 
+
+mt <- matrix(NA, nrow = 1,ncol = 3)
+colnames(mt) <- c("513","317","375")  
+mt[1,] <- c(0.4359,0.4033,0.3049)
+
+####now testing on prediction####
+cs<- c("150","208","292","318","344") 
+pred <- matrix(NA,nrow = 1,ncol = 5)
+colnames(pred) <- c("150","208","292","318","344")
+
+for (s in cs) {
+if (!is.na(final_U ["513",s])){
+rnum <- sum(0,mt[1]*final_U["513",s])
+}
+if(!is.na(final_U["317",s])){
+    rnum <- sum(rnum,mt[2]*final_U["317",s])
+  }
+  if(!is.na(final_U["375",s])){
+    rnum <- sum(rnum,mt[3]*final_U["375",s])
+  }
+  
+ratedm <- 0
+  for(users in 1:3){
+    
+    if(!is.na(final_U[colnames(mt)[users],s]) ){
+      ratedm <- sum(ratedm,mt[users])
+    }
+    else {
+      next
+    }
+  }
+
+vk<- (rnum / ratedm) + var1[1]
+  pred[1,s] <- round(vk,0)
+  
+}
+
+error_no <- matrix(as.numeric(0),nrow = 5,ncol = 3)
+
+rownames(error_no) <- c("150","208","292","318","344") 
+colnames(error_no) <- c("predicted","actual","difference")
+u191 <- subset(ratings_df,ratings_df$userId==191)
+for (z in 1:5){
+  error_no[colnames(pred)[z],"predicted"] <- pred[1,colnames(pred)[z]]
+  error_no[colnames(pred)[z],"actual"] <- as.numeric(u191$rating[which(u191$movieId %in% colnames(pred)[z])])
+ error_no[colnames(pred)[z],"difference"] <- (as.numeric(error_no[z,"predicted"]) - as.numeric(error_no[z,"actual"]))^2 
+}
+total <- 0
+for (r in 1:5) {
+total <- total + as.numeric(error_no[r,"difference"])  
+}
+
+rmse <- round((sqrt(total) / 5),3)
+
+error_no
+
+
+cat("User ID 191, 5 random user IDs: ", as.numeric(rownames(U)),"\n")
+cat("Using user-user similarity, User ID 191 will rate the movies as follows:", "\n")
+
+for(q in 1:5){
+  cat(rownames(error_no)[q],":", as.numeric(error_no[q,1]),"\n")
+}
+cat("RSME:",rmse,"\n")
+```
+###Part 2.3 b  Prediction using item-item similarity: 
+```{r}
+srs <- t(U)
+srs["231","191"] <- 2
+
+
+meansrs <- apply(srs, 1, function(xm) mean(xm, na.rm=T))
+U_srs<- srs
+for(e in 1:nrow(srs)) 
+{
+  for(f in 1:ncol(srs)) 
+  {
+    if(!is.na(srs[e,f]))
+    {
+      srs[e,f] <- srs[e,f] - meansrs[e]
+    } 
+    else
+    {
+      srs[e,f] <- 0 
+    }
+  }
+}
+error_no2 <- matrix(as.numeric(0),nrow = 4,ncol = 3)#matric with predicted, actual and difference values
+rownames(error_no2)<- c("150","208","292","318")
+colnames(error_no2) <- c("predicted","actual","difference")
+
+
+cos_mat <- matrix(NA,nrow = 29,ncol = 1)
+
+for (h in 1:nrow(srs)){
+  cos1 <- cosine_similarity(srs[h,],srs[1,])
+  cos_mat[h,1] <- round(cos1,4)    
+}
+
+cos_mat[1] <- 0.0000
+
+srs <- cbind(srs,cos_mat)
+mix <- c(tail(sort(srs[,7])))
+mix
+
+
+r.num <- sum(srs["595",7]*srs["595",1] + srs["10",7]*srs["10",1] + srs["34",7]*srs["34",1])
+  
+gg <- c("595","10","34")
+r.den <- 0
+  for(u1 in 1:3){
+    
+    if(srs[gg[u1],1] != 0){
+      r.den <- sum(r.den,srs[gg[u1],7])
+    }
+    else {
+      next
+    }
+  }
+rq <- (r.num / r.den) + meansrs[1]
+  error_no2[1,"predicted"] <- round(rq)
+  error_no2[1,"actual"] <-  as.numeric(u191$rating[which(u191$movieId %in% "150")])
+  error_no2[1,"difference"] <- (as.numeric(error_no2[1,"predicted"]) - as.numeric(error_no2[1,"actual"]))^2   
+###
+srs <- srs[,-7]
+
+cos_mat <- matrix(NA,nrow = 29,ncol = 1)
+
+for (h in 1:nrow(srs)){
+  cos1 <- cosine_similarity(srs[h,],srs[2,])
+  cos_mat[h,1] <- round(cos1,4)    
+}
+
+cos_mat[2] <- 0.0000
+
+srs <- cbind(srs,cos_mat)
+mix<- c(tail(sort(srs[,7])))
+
+ 
+gg <- c("165","208","457")
+
+r.num <- sum(srs[gg[1],7]*srs[gg[1],1] + srs[gg[2],7]*srs[gg[2],1] + srs[gg[3],7]*srs[gg[3],1])
+  
+
+r.den <- 0
+  for(u1 in 1:3){
+    
+    if(srs[gg[u1],1] != 0){
+      r.den <- sum(r.den,srs[gg[u1],7])
+    }
+    else {
+      next
+    }
+  }
+rq <- (r.num / r.den) + meansrs[2]
+  error_no2[2,"predicted"] <- round(rq)
+  error_no2[2,"actual"] <-  as.numeric(u191$rating[which(u191$movieId %in% "208")])
+  error_no2[2,"difference"] <- (as.numeric(error_no2[2,"predicted"]) - as.numeric(error_no2[2,"actual"]))^2 
+  
+#####
+  srs<- srs[,-7]
+
+
+cos_mat <- matrix(NA,nrow = 29,ncol = 1)
+
+for (h in 1:nrow(srs)){
+  cos1 <- cosine_similarity(srs[h,],srs[3,])
+  cos_mat[h,1] <- round(cos1,4)    
+}
+
+cos_mat[3] <- 0.0000
+srs <- cbind(srs,cos_mat)
+mix <- c(tail(sort(srs[,7])))
+
+ 
+gg<- c("356","165","150")#neighbouring movie items
+
+r.num <- sum(srs[gg[1],7]*srs[gg[1],1] +srs[gg[2],7]*srs[gg[2],1] + srs[gg[3],7]*srs[gg[3],1])
+  
+
+r.den <- 0
+  for(u1 in 1:3){
+    
+    if(srs[gg[u1],1] != 0){
+      r.den <- sum(r.den,srs[gg[u1],7])
+    }
+    else {
+      next
+    }
+  }
+  
+  rq <- (r.num / r.den) + meansrs[3]
+ error_no2[3,"predicted"] <- round(rq)
+  error_no2[3,"actual"] <-  as.numeric(u191$rating[which(u191$movieId %in% "292")])
+  error_no2[3,"difference"] <- (as.numeric(error_no2[3,"predicted"]) - as.numeric(error_no2[3,"actual"]))^2 
+
+  ############
+  
+  srs <- srs[,-7]
+
+
+cos_mat <- matrix(NA,nrow = 29,ncol = 1)
+
+for (h in 1:nrow(srs)){
+  cos1 <- cosine_similarity(srs[h,],srs[4,])
+  cos_mat[h,1] <- round(cos1,4)    
+}
+cos_mat[5] <- 0.0000
+cos_mat[4] <- 0.0000
+
+srs <- cbind(srs,cos_mat)
+mix <- c(tail(sort(srs[,7])))
+
+ 
+gg <- c("150","165","457")#neighbouring movie items
+
+r.num <- sum(srs[gg[1],7]*srs[gg[1],1] + srs[gg[2],7]*srs[gg[2],1] + srs[gg[3],7]*srs[gg[3],1])
+  
+
+r.den <- 0
+  for(u1 in 1:3){
+    
+    if(srs[gg[u1],1] != 0){
+      r.den <- sum(r.den,srs[gg[u1],7])
+    }
+    else {
+      next
+    }
+  }
+  
+  rq <- (r.num / r.den) + meansrs[4]
+  error_no2[4,"predicted"] <- round(rq)
+ error_no2[4,2] <- u191["318",3]
+  error_no2[4,"actual"] <-  as.numeric(u191$rating[which(u191$movieId %in% "318")])
+  error_no2[4,"difference"] <- (as.numeric(error_no2[4,"predicted"]) - as.numeric(error_no2[4,"actual"]))^2 
+
+
+#########################
+  
+  srs <- srs[,-7]
+
+
+final <- 0
+for (o in 1:4){
+final<- final+ as.numeric(error_no2[o,"difference"])  
+}
+
+rsme2 <- round((sqrt(final) / 4),3)
+
+
+cat("User ID 191, 5 random user IDs:  ", as.numeric(colnames(U_srs)),"\n")
+cat("Using item-item similarity, User 191 will rate the movies as follows:" , "\n")
+for (w in 1:4){
+  cat(rownames(error_no2)[w],":", as.numeric(error_no2[w,1]),"\n")
+}
+cat("RSME",":",rsme2)
+
+```
