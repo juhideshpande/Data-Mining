@@ -1,0 +1,242 @@
+---
+title: "CS 422 Section 04"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  
+---
+
+###Q2.1 A
+
+```{r}
+getwd()
+setwd("C:/Users/Juhi Deshpande/Documents")
+college.df<- data.frame(read.csv("College.csv", header = TRUE))
+head(college.df,6)
+
+```
+###Q2.1 B
+```{r}
+d1<-c(college.df$Private)
+print(is.factor(d1))
+ 
+d1_factor<-factor(d1)
+print(d1_factor)
+print(is.factor(d1_factor))
+college_total<-table(college.df$Private)
+print(college_total)
+paste0("Public colleges are : ", college_total[1][1] )
+paste0("Private colleges are : ", college_total[2][1] )
+
+```
+###Q2.1 C
+```{r}
+library(dplyr)
+public.df<- data.frame(filter(college.df, Private == "No"))
+print(public.df)
+PhD_count<-(public.df$PhD)
+hist(PhD_count, main="PhD count in Public Colleges", xlab ="PhD_holders", col = "blue",border = "black",freq = FALSE)
+
+private.df<- data.frame(filter(college.df, Private == "Yes"))
+print(private.df)
+PhD_total<-(private.df$PhD)
+hist(PhD_total, main="PhD count in Private Colleges",  xlab ="PhD_holders", col = "red",border = "black",freq = FALSE)
+lines(density(PhD_total), lty="dotted",col="black", lwd=2)
+#thus, by analyzing both the histograms we can see that the private colleges are tech heavy with PhD faculty
+```
+###Q2.1 D
+```{r}
+library(dplyr)
+college.df1<-data.frame(arrange(college.df, Grad.Rate))
+print(college.df1)
+head(select(college.df1, Name, Grad.Rate),5)
+tail(select(college.df1, Name, Grad.Rate),5)
+```
+###Q2.1 E
+
+```{r}
+##Q2.1 E i
+summary(college.df)
+
+
+##Q2.1 E ii
+pairs(college.df[,1:10], main = "Scatter Plot Matrix", pch = 21 , bg = c("red", "yellow", "green"))
+
+
+#Q2.1 E iii
+boxplot(perc.alumni~Private, data=college.df, xlab= " Colleges ( i. Public   ii.Private)", ylab= "Alumni Percentage", main="Alumni Donation in Colleges")
+#Alumni that go to private colleges donate more
+
+
+##Q2.1 E iv
+boxplot(PhD~Private, data=college.df, xlab= " Colleges ( i. Public   ii.Private)", ylab= "PhD Percentage", main="PhD students in Colleges")
+#Private colleges employ more PhDs
+
+
+##Q2.1 E v
+Elite <- rep("No", nrow(college.df))
+Elite[college.df$Top10perc > 50] <- "Yes"
+Elite <- as.factor(Elite)
+college.df$Elite <- Elite
+summary(college.df$Elite)
+
+##Q2.1 E vi
+par(mfrow=c(2,3))
+hist(college.df$PhD, xlab = "PhD")
+hist(college.df$Grad.Rate, xlab = "Graduation Rate")
+hist(college.df$S.F.Ratio, xlab = "Student to Faculty Ratio")
+hist(college.df$Accept, xlab = "Acceptance")
+hist(college.df$Outstate, xlab = "Outstate")
+hist(college.df$Enroll, xlab = "Enrollment")
+
+##Q2.1 E vii
+paste0("Maximum Graduation Rate:" ,max(college.df$Grad.Rate), " and minimum Graduation Rate:",min(college.df$Grad.Rate) )
+paste0("Maximum applications are:" ,max(college.df$Apps), " and minimum applications are:",min(college.df$Apps) )
+paste0("Maximum acceptance" ,max(college.df$Accept), " and minimum acceptance :",min(college.df$Accept) )
+paste0("Maximum enrollment:" ,max(college.df$Enroll), " and minimum enrollment: are:",min(college.df$Enroll) )
+
+```
+
+###Q2.2 a
+```{r}
+#Q2.2 a i
+setwd("C:/Users/Juhi Deshpande/Documents")
+auto.df<-data.frame(read.csv("auto-mpg.csv",header=TRUE))
+print(auto.df)
+which(auto.df$horsepower=="?")
+auto_new.df<-data.frame(subset(auto.df, auto.df$horsepower != "?"))
+print(auto_new.df)
+
+#Q2.2 a ii
+str(auto_new.df)
+auto_new.df$horsepower<-as.integer(auto_new.df$horsepower)
+str(auto_new.df)
+```
+
+###Q2.2 b
+```{r}
+library(psych)
+pairs.panels(auto_new.df)
+cor(auto_new.df$weight,auto_new.df$mpg)
+#the attribute that is strongly correlated with mpg is model year and has a value of -0.83 (|-0.83|) is 0.83
+
+model<-lm(mpg ~ ., auto_new.df)
+summary(model)
+relation<-lm(mpg ~ model.year, auto_new.df)
+print(summary(relation))
+rmse<-function(errors) {sqrt(mean(error^2))}
+ rmse(relation$residuals)
+#the mean square value for the regression between mpg and model.year has RSE = 6.363, R^2 = 0.337, RMSE: 6.346968
+```
+
+###Q2.2 c
+```{r}
+plot(auto_new.df$model.year, auto_new.df$mpg, xlab="Model.year", ylab="Mileage", main="Model.year vs Mileage")
+abline(relation ,lty="solid",col="red")
+
+set.seed(1122)
+index <- sample(1:nrow(auto_new.df), 0.80*dim(auto_new.df)[1])
+train.df <- auto_new.df[index, ]
+test.df <- auto_new.df[-index, ]
+
+```
+###Q2.2 d
+```{r}
+
+#Q2.2 d i
+class(auto_new.df$car.name)
+a<-lm(mpg~., data = train.df)
+summary(a)
+#car.name is a factor so we cannot use it. Along with that every car has a different value generated for p and most of the p values being greater than 0.05.
+#car name is not statistically significant because it does not have enough value for prediction
+
+
+#Q2.2 d ii
+regression_model<-lm(mpg ~ cylinders + displacement+ horsepower+weight+acceleration+model.year+origin, data=train.df)
+summary(regression_model)
+rmse<-function(error) {sqrt(mean(error^2))}
+ rmse(regression_model$residuals)
+#the Residual Standard error is:3.188, R^2 : 0.839, Root Mean Square error 3.147463
+```
+###Q2.2 e
+```{r}
+
+#Q 2.2 e i
+a<-step(regression_model,direction = "backward")
+summary(a)
+
+#Q 2.2 e ii
+b<-lm(mpg ~ model.year+ weight + 
+    origin, data = train.df)
+summary(b)
+rmse<-function(error) {sqrt(mean(error^2))}
+ rmse(b$residuals)
+
+#the R^2 for this model is 0.8315 , RSE= 3.24 also the F-statistic value (508.2) is higher for this trio combination, rmse=3.218801
+
+```
+
+###Q2.2 f
+```{r}
+
+resid(b)
+plot(train.df$mpg,resid(b), xlab="Fitted Value",ylab="Residuals",  main="Residuals vs Fits(response is mpg)")
+#doubt
+
+abline(a=0,b=0, col="red")
+
+
+#Residuals are homosceadastic and the variance in between the values of X is not very low and not very high
+```
+###Q 2.2 g
+```{r}
+hist(resid(b),xlab="Residuals",ylab="Density",col="grey", main="Histogram of residuals",freq = FALSE)
+lines(density(resid(b)),col="blue")
+
+
+library(e1071) 
+skewness(resid(b))
+
+#The model does not follow Gaussian distribution becuase the curve is not a normal curve and skewness is not zero.
+```
+###Q 2.2 h
+```{r}
+p<-predict.lm(b,test.df)
+p<-round(p)
+new_df<-data.frame(p,test.df$mpg)
+
+a<-table(as.data.frame.numeric(new_df$p==new_df$test.df.mpg))
+a[2]
+#there are 11 matches between mpg in dataset
+```
+```{r}
+actual_pred<-data.frame(cbind(actuals=test.df$mpg, predicts = p))
+cor(actual_pred)
+print(actual_pred)
+#head(actual_pred)
+
+
+```
+###Q 2.2 i
+```{r}
+R<-lm(mpg~.-car.name, data=test.df)
+res<-resid(R)
+print(res)
+summary(R)
+
+
+rmse<-function(error) {sqrt(mean(error^2))}
+ rmse(R$residuals)
+#the F-stastic : 35 and RSE: 3.804 RMSE:3.605891
+ RSS =sum((R$predicted - R$mpg)^2)
+ print(RSS)
+  TSS = sum((R$mpg - mean(R$mpg))^2)
+  print(TSS)
+ anova(R)
+ #rss:1027.9
+# rss<-sum((test.df$mpg-pre[,1])^2)
+#paste("rss: ",rss)
+ #tss<-sum((test.df$mpg-mean(test.df$mpg))^2)
+#paste("tss: ",tss)
+```
